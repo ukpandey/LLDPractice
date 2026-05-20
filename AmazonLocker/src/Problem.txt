@@ -1,0 +1,80 @@
+What is Amazon Locker?
+Amazon Locker is a self-service package pickup system. A delivery driver deposits a package into an available compartment, the system generates an access token, and the customer uses that code to retrieve their package.
+
+Requirements:
+1. Carrier deposits a package by specifying size (small, medium, large)
+   - System assigns an available compartment of matching size
+   - Opens compartment and returns access token, or error if no space
+2. Upon successful deposit, an access token is generated and returned
+   - One access token per package
+3. User retrieves package by entering access token
+   - System validates code and opens compartment
+   - Throws specific error if code is invalid or expired
+4. Access tokens expire after 7 days
+   - Expired codes are rejected if used for pickup
+   - Package remains in compartment until staff removes it
+5. Staff can open all expired compartments to manually handle packages
+   - System opens all compartments with expired tokens
+   - Staff physically removes packages and returns them to sender
+6. Invalid access tokens are rejected with clear error messages
+   - Wrong code, already used, or expired - user gets specific feedback
+
+Out of scope:
+- How the package gets to the locker (delivery logistics)
+- How the access token reaches the customer (SMS/email notification)
+- Lockout after failed access token attempts
+- UI/rendering layer
+- Multiple locker stations
+- Payment or pricing
+
+Core Entities and Relationships
+With clear requirements in hand, the next step is figuring out what objects make up the system. Your instinct should be to look for nouns in the requirements and turn them into classes. But keep in mind that not every noun deserves to be an entity. Some are concepts that belong as fields on other classes or even input parameters.
+Let's walk through the candidates and see which ones actually pull their weight.
+
+Package - This one seems obvious at first. We're storing packages, so we need a Package class, right? But stop and think about what a Package would actually do in our system. Packages are external to our locker system, meaning some other system (Amazon's fulfillment system) tracks package IDs, shipping info, customer details, and all that. Our system only cares about one thing, the package's size. We need to know if it's small, medium, or large so we can pick the right compartment. That's it. Package doesn't need to be an entity, the size is just an input parameter to our deposit operation.
+
+Compartment - This is a real thing. A physical container with a size and an ID. Clear entity.
+
+Locker - Someone needs to orchestrate the whole system. When a driver says "I have a medium package," something needs to scan compartments, find an available one, generate a code, and tie it all together. That's the Locker. It's the entry point.
+
+AccessToken - At first, you might think the access token is just a string field on Package or Compartment. But an AccessToken isn't just a code. It's a bearer token with an expiration time. It represents the right to open a specific compartment. That's a concept worth modeling. If AccessToken is its own entity, it can own the expiration logic and the mapping to the compartment.
+
+With these considerations, our final entity set is:
+- Locker:	The orchestrator. Owns all compartments and the AccessToken lookup map. Handles deposit and pickup operations.
+- AccessToken:	Represents a bearer token for compartment access. Holds the code, expiration timestamp, and a reference to the compartment it unlocks. Enforces expiry when validating.
+-Compartment:	A physical locker slot. Has an ID, a size, and tracks
+
+class Locker:
+    - compartments: Compartment[]
+    - accessTokenMapping: Map<string, AccessToken>
+
+    + Locker(compartments)
+    + depositPackage(size) -> string | error
+    + pickup(tokenCode) -> void | error
+    + openExpiredCompartments() -> void
+
+class AccessToken:
+    - code: string
+    - expiration: timestamp
+    - compartment: Compartment
+
+    + AccessToken(code, expiration, compartment)
+    + isExpired() -> boolean
+    + getCompartment() -> Compartment
+    + getCode() -> string
+
+class Compartment:
+    - size: Size
+    - occupied: boolean
+
+    + Compartment(size)
+    + getSize() -> Size
+    + isOccupied() -> boolean
+    + markOccupied() -> void
+    + markFree() -> void
+    + open() -> void
+
+enum Size:
+    SMALL
+    MEDIUM
+    LARGE

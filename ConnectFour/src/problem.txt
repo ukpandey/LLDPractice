@@ -28,3 +28,49 @@ Entity	Responsibility
 -Board:	The 7x6 grid where discs live. Owns the grid state and handles disc placement. Knows how to check if a column is full, where a disc should fall, and whether four discs are connected. Doesn't care about whose turn it is or who's winning.
 
 -Player: Represents a person in the game. Simple data holder with a name and disc color. No game logic here.
+
+class Game:
+    - board: Board
+    - player1: Player
+    - player2: Player
+    - currentPlayer: Player
+    - state: GameState        // IN_PROGRESS, WON, DRAW
+    - winner: Player?
+
+    + Game(player1, player2)
+    + makeMove(player, column) -> bool
+    + getCurrentPlayer() -> Player
+    + getGameState() -> GameState
+    + getWinner() -> Player?
+    + getBoard() -> Board
+
+class Board:
+    - rows: int = 6
+    - cols: int = 7
+    - grid: DiscColor?[rows][cols]
+
+    + Board()
+    + getRows() -> int
+    + getCols() -> int
+    + canPlace(column) -> bool
+    + placeDisc(column, color) -> int
+    + isFull() -> bool
+    + checkWin(row, column, color) -> bool
+    + getCell(row, column) -> DiscColor?
+
+class Player:
+    - name: string
+    - color: DiscColor
+
+    + Player(name, color)
+    + getName() -> string
+    + getColor() -> DiscColor
+
+enum GameState:
+    IN_PROGRESS
+    WON
+    DRAW
+
+enum DiscColor:
+    RED
+    YELLOW
